@@ -1,62 +1,68 @@
 local wasFirstPerson = false
 
+-- 🔧 HIER kannst du den Ego-FOV einstellen
+local FPS_FOV = 75       -- z. B. 65, 70, 75, 80
+local DEFAULT_FOV = 55   -- normaler Standard-FOV
+
+-- 🔫 Waffen, bei denen es aktiv ist
+local allowedWeapons = {
+    GetHashKey("WEAPON_PISTOL"),
+    GetHashKey("WEAPON_COMBATPISTOL"),
+    GetHashKey("WEAPON_PISTOL_MK2"),
+    GetHashKey("WEAPON_CARBINERIFLE")
+}
+
+-- Hilfsfunktion: Waffe erlaubt?
+local function isWeaponAllowed(weapon)
+    for _, w in ipairs(allowedWeapons) do
+        if weapon == w then
+            return true
+        end
+    end
+    return false
+end
+
 Citizen.CreateThread(function()
     while true do
         local waitTime = 200
         local ped = PlayerPedId()
 
-        if DoesEntityExist(ped) and not IsPedDeadOrDying(ped, true) then
-            if IsPedInAnyVehicle(ped, false) then
-                waitTime = 0
-                local player = PlayerId()
-                local isAiming = IsPlayerFreeAiming(player)
-                local weapon = GetSelectedPedWeapon(ped)
+        if IsPedInAnyVehicle(ped, false) then
+            waitTime = 0
+            local player = PlayerId()
+            local isAiming = IsPlayerFreeAiming(player)
+            local weapon = GetSelectedPedWeapon(ped)
 
-                -- 🔫 Liste der Waffen, bei denen Ego aktiviert wird:
-                local allowedWeapons = {
-                    GetHashKey("WEAPON_PISTOL"),
-                    GetHashKey("WEAPON_COMBATPISTOL"),
-                    GetHashKey("WEAPON_CARBINERIFLE"),
-                    GetHashKey("WEAPON_PISTOL_MK2")
-                }
+            if isAiming and isWeaponAllowed(weapon) then
+                if not wasFirstPerson then
+                    -- 🎥 Ego-Perspektive
+                    SetFollowVehicleCamViewMode(4)
+                    SetFollowPedCamViewMode(4)
 
-                -- Prüfen, ob aktuelle Waffe in der Liste ist
-                local weaponAllowed = false
-                for _, w in ipairs(allowedWeapons) do
-                    if weapon == w then
-                        weaponAllowed = true
-                        break
-                    end
-                end
+                    -- 👁 FPS-FOV setzen
+                    SetProfileSetting(227, FPS_FOV) 
+                    -- 227 = profile_fpsFieldofView
 
-                -- Wenn gezielt wird und Waffe erlaubt ist
-                if isAiming and weaponAllowed then
-                    if not wasFirstPerson then
-                        if SetFollowVehicleCamViewMode then
-                            SetFollowVehicleCamViewMode(4)
-                        end
-                        if SetFollowPedCamViewMode then
-                            SetFollowPedCamViewMode(4)
-                        end
-                        wasFirstPerson = true
-                    end
-                else
-                    if wasFirstPerson then
-                        if SetFollowVehicleCamViewMode then
-                            SetFollowVehicleCamViewMode(1)
-                        end
-                        if SetFollowPedCamViewMode then
-                            SetFollowPedCamViewMode(1)
-                        end
-                        wasFirstPerson = false
-                    end
+                    wasFirstPerson = true
                 end
             else
                 if wasFirstPerson then
-                    if SetFollowVehicleCamViewMode then SetFollowVehicleCamViewMode(1) end
-                    if SetFollowPedCamViewMode then SetFollowPedCamViewMode(1) end
+                    -- Zurücksetzen
+                    SetFollowVehicleCamViewMode(1)
+                    SetFollowPedCamViewMode(1)
+
+                    -- FOV zurück auf normal
+                    SetProfileSetting(227, DEFAULT_FOV)
+
                     wasFirstPerson = false
                 end
+            end
+        else
+            if wasFirstPerson then
+                SetFollowVehicleCamViewMode(1)
+                SetFollowPedCamViewMode(1)
+                SetProfileSetting(227, DEFAULT_FOV)
+                wasFirstPerson = false
             end
         end
 
